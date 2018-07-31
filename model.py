@@ -17,9 +17,7 @@ def build_graph(hub_module):
 	with tf.Graph() as graph:
 		input_tensor = tf.placeholder(tf.float32, shape=(None, h, w, 3))
 		mod = hub.Module(module)
-		final_tensor = m(input_tensor)
-		do_quant = any(for op in graph.as_graph_def())
-
+		final_tensor = mod(input_tensor)
 
 	return graph, final_tensor, input_tensor	
 
