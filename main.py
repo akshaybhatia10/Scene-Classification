@@ -1,7 +1,7 @@
 import argparse
 import tensorflow as tf
 from dataset import load_dataset
-from helper import check_count
+from helper import check_count, decode_and_resize
 from model import build_graph, build_and_retrain
 
 if __name__ == '__main__':
@@ -39,6 +39,7 @@ if __name__ == '__main__':
 		session = tf.Session(graph=graph)
 		with session as sess:
 			sess.run(tf.global_variables_initializer())
-
+			
+			input_image_tensor, output_image_tensor = decode_and_resize(args.hub_module)
 	else:
 		exit()
