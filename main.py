@@ -1,10 +1,13 @@
 import argparse
-#import tensorflow as tf
+import tensorflow as tf
 from dataset import load_dataset
 from helper import check_count
-from model import build_graph
+from model import build_graph, build_and_retrain
 
 if __name__ == '__main__':
+	INPUT_TENSOR_NAME = 'Placeholder'
+	FINAL_TENSOR_NAME = 'final_result'
+
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--data_dir', type=str, default='dataset', help='Path to the dataset')
 	parser.add_argument('--val_size', type=float, default='1', help='Validation set percentage')
@@ -24,11 +27,18 @@ if __name__ == '__main__':
 		help='Architecture of module')
 
 	args = parser.parse_args()
-	print (args)
 	# Load dataset and get all files
-	files = load_dataset(args.data_dir, args.test_size, args.val_size)
-	num_classes = len(files)
+	classes, files = load_dataset(args.data_dir, args.test_size, args.val_size)
+	num_classes = len(classes)
 	if check_count(num_classes):
-		build_graph(args.hub_module)
+		graph, pre_final_tensor, input_tensor = build_graph(args.hub_module)
+		
+		with graph.as_default():
+			optimizer, loss, pre_final_input_tensor, truth_input_tensor, final_output_tensor = build_and_retrain(num_classes, FINAL_TENSOR_NAME, pre_final_tensor, args.learning_rate, train=True)
+		
+		session = tf.Session(graph=graph)
+		with session as sess:
+			sess.run(tf.global_variables_initializer())
+
 	else:
 		exit()
