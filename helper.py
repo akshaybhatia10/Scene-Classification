@@ -1,5 +1,9 @@
 import tensorflow as tf
 import tensorflow_hub as hub
+import os
+import numpy as np
+
+SETS = ['train', 'valid', 'test']
 
 def check_count(num_classes):
 	"""Check if number of classes in dataset
@@ -55,3 +59,24 @@ def decode_and_resize(hub_module):
 	reshaped_image = tf.image.resize_bilinear(decode, reshape)
 
 	return  data_placeholder, reshaped_image
+
+def find_image_file(files, label, i, path, s):
+	"""Find image file
+	Args:
+		files: Training file names
+		label: class for the image file
+		i: counter for an image file
+		FEATURES_DIR: Path to the store variables
+		s: one of - train, valid or test
+	Returns:
+		Path to image file
+	"""
+	file_lists = files[label]
+	set_lists = file_lists[s]
+	assert label in files, 'Class {} not found'.format(label)
+	assert s in file_lists, 'Incorrect set category! Must be either train, test, valid'
+
+	idx = i % len(set_lists)
+	base = set_lists[idx]
+	image_file_path = os.path.join(path, label, base)
+	return image_file_path
