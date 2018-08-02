@@ -18,6 +18,9 @@ def load_dataset(data_dir, test_size, val_size):
 	"""
 	tot = test_size + val_size
 	train_size = 100 - tot
+
+	assert test_size >= 1, 'Test percent must be non-negative' 
+	assert val_size >= 1, 'Valid percent must be non-negative'
 	assert test_size <= 25, 'Keep test percent below 25' 
 	assert val_size <= 25, 'Keep valid percent below 25'
 	assert tot <= 40, 'Train on atleast 60%. Current training percent {}'.format(train_size)
@@ -39,9 +42,10 @@ def load_dataset(data_dir, test_size, val_size):
 			print ('{} has {} images'.format(folder, num_files))
 			
 			train_set, test_set, valid_set = [], [], []
-			train_set.append(np.take(files, train_idx))
-			test_set.append(np.take(files, test_idx))
-			valid_set.append(np.take(files, valid_idx))		 
+			
+			train_set = list(np.squeeze(list(np.take(files, train_idx))))
+			test_set = list(np.squeeze(list(np.take(files, test_idx))))
+			valid_set = list(np.squeeze(list(np.take(files, valid_idx))))
 
 			dataset[folder] = {'train':train_set, 'valid':valid_set, 'test':test_set}	
 		
