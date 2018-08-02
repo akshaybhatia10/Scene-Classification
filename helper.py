@@ -80,3 +80,22 @@ def find_image_file(files, label, i, path, s):
 	base = set_lists[idx]
 	image_file_path = os.path.join(path, label, base)
 	return image_file_path
+
+def find_feature_file(files, label, i, FEATURES_DIR, s, hub_module):
+	"""Find feature file
+	Args:
+		files: Training file names
+		label: class for the image file
+		i: counter for an image file
+		FEATURES_DIR: Path to the store variables
+		s: one of - train, valid or test
+		hub_module: Tensorflow Hub module
+	Returns:
+		Path to feature file
+	"""
+	hub_module = hub_module.replace('://', '~').replace('/', '~') \
+				.replace(':', '~').replace('\\', '~')
+	image_feature_path = find_image_file(files, label, i, FEATURES_DIR, s) \
+						 + '_' + hub_module + '.txt'
+
+	return image_feature_path	
