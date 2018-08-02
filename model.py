@@ -72,5 +72,23 @@ def build_and_retrain(num_classes, FINAL_TENSOR_NAME, pre_final_tensor, learning
 		
 		return optimizer, loss, pre_final_input_tensor, truth_input_tensor, final_output_tensor
 
-	return None, None, pre_final_input_tensor, truth_input_tensor, final_output_tensor	
+	return None, None, pre_final_input_tensor, truth_input_tensor, final_output_tensor
 
+def classify_outputs(logits, labels):
+	"""Calculate prediction scores
+	Args:
+		logits: Predicted targets
+		labels: True targets
+	Returns:
+		prediction of our network
+		evaluation step
+	"""
+	with tf.name_scope('accuracy'):
+		with tf.name_scope('correct_results'):
+			preds = tf.argmax(logits, 1)
+			correct = tf.equal(pred, labels)
+		with tf.name_scope('accuracy'):
+			step = tf.reduce_mean(tf.cast(correct, tf.float32))
+	tf.summary.scalar('accuracy', step)	
+
+	return pred, step		
