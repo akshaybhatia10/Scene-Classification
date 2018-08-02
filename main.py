@@ -1,12 +1,13 @@
 import argparse
 import tensorflow as tf
 from dataset import load_dataset
-from helper import check_count, decode_and_resize
+from helper import check_count, decode_and_resize, store_tensors
 from model import build_graph, build_and_retrain
 
 if __name__ == '__main__':
 	INPUT_TENSOR_NAME = 'Placeholder'
 	FINAL_TENSOR_NAME = 'final_result'
+	FEATURES_DIR = 'features'
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--data_dir', type=str, default='dataset', help='Path to the dataset')
@@ -34,12 +35,18 @@ if __name__ == '__main__':
 		graph, pre_final_tensor, input_tensor = build_graph(args.hub_module)
 		
 		with graph.as_default():
-			optimizer, loss, pre_final_input_tensor, truth_input_tensor, final_output_tensor = build_and_retrain(num_classes, FINAL_TENSOR_NAME, pre_final_tensor, args.learning_rate, train=True)
+			optimizer, loss, pre_final_input_tensor, truth_input_tensor, final_output_tensor = \
+			build_and_retrain(num_classes, FINAL_TENSOR_NAME, pre_final_tensor, args.learning_rate, train=True)
 		
 		session = tf.Session(graph=graph)
+		
 		with session as sess:
 			sess.run(tf.global_variables_initializer())
 			
-			input_image_tensor, output_image_tensor = decode_and_resize(args.hub_module)
+			data_placeholder, reshaped_image = decode_and_resize(args.hub_module)
+			store_tensors(sess, files, args.data_dir, FEATURES_DIR, \
+						  data_placeholder, reshaped_image, pre_final_tensor, \
+						  input_tensor, args.hub_module)
+		
 	else:
 		exit()
