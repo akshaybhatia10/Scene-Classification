@@ -82,7 +82,7 @@ def find_image_file(files, label, i, path, s):
 	return image_file_path
 
 def find_feature_file(files, label, i, FEATURES_DIR, s, hub_module):
-	"""Find feature file
+	"""Finds feature (TFHUB) file
 	Args:
 		files: Training file names
 		label: class for the image file
@@ -98,4 +98,35 @@ def find_feature_file(files, label, i, FEATURES_DIR, s, hub_module):
 	image_feature_path = find_image_file(files, label, i, FEATURES_DIR, s) \
 						 + '_' + hub_module + '.txt'
 
-	return image_feature_path	
+	return image_feature_path
+
+def store_tensors(sess, files, data_dir, FEATURES_DIR, data_placeholder, \
+				  reshaped_image, pre_final_tensor, input_tensor, hub_module):
+	"""Iterate over train, test, valid set and
+	   stores all f to disk
+	Args:
+		sess: Current Tensorflow session
+		files: Training file names
+		data_dir: Path to the dataset
+		FEATURES_DIR: Path to the store variables
+		data_placeholder: Placeholder for image data
+		reshaped_image: Reshaped tensor as expected by graph
+		pre_final_tensor: pre_final (bottleneck) tensor
+		input_tensor: input tensor (expected image size by graph)
+		hub_module: Tensorflow Hub module
+	"""
+	num_saves = 0
+	SETS = ['train', 'valid', 'test']
+	if not os.path.exists(FEATURES_DIR):
+		os.makedirs(FEATURES_DIR)
+	for label, data_list in files.items():
+		for s in SETS:
+			file_list = data_list[s]
+			for i, file_name in enumerate(file_list):
+				log_tensor(sess, files, label, i, data_dir, s,
+					FEATURES_DIR, data_placeholder,reshaped_image,
+			  		pre_final_tensor, input_tensor, hub_module)
+
+				num_saves += 1
+				if num_saves % 100 == 0:
+					print ('Number of files saved: {}'.format(num_saves))		
