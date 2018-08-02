@@ -100,6 +100,110 @@ def find_feature_file(files, label, i, FEATURES_DIR, s, hub_module):
 
 	return image_feature_path
 
+def compute_features(sess, data, data_placeholder, reshaped_image, 
+					 pre_final_tensor, input_tensor):
+	"""Computes pre final tensors(features) for 
+	   each image and write to file
+	Args:
+		sess: Current tensorflow session
+		data: raw image data
+		data_placeholder: Placeholder for image data
+		reshaped_image: Reshaped tensor as expected by graph
+		pre_final_tensor: pre_final (bottleneck) tensor
+		input_tensor: input tensor (expected image size by graph)
+	
+	Returns:
+		Feature values for each image file
+	"""
+	reshaped_image = sess.run(reshaped_image, {data_placeholder: data})
+	feature_values = sess.run(pre_final_tensor, {input_tensor: reshaped_image})
+	feature_values = np.squeeze(feature_values)
+	
+	return feature_values
+
+def make_feature_file(image_feature_path, files, label, i, 
+					  data_dir, s, sess, data_placeholder, 
+					  reshaped_image, pre_final_tensor, input_tensor):	
+	"""Computes pre final tensors(features) for 
+	   each image and write to file
+	Args:
+		image_feature_path: Path to feature file
+		files: Training file names
+		label: class for the image file
+		i: counter for an image file
+		data_dir: Path to the dataset
+		s: one of - train, valid or test
+		sess: Current tensorflow session
+		data_placeholder: Placeholder for image data
+		reshaped_image: Reshaped tensor as expected by graph
+		pre_final_tensor: pre_final (bottleneck) tensor
+		input_tensor: input tensor (expected image size by graph)
+	"""
+	print ('Computing features at {}'.format(image_feature_path))
+	image_file_path = find_image_file(files, label, i, data_dir, s)
+
+	if not os.path.exists(image_file_path):
+		print ('{} does not exist'.format(image_file_path))
+	data = tf.gfile.FastGFile(image_file_path, 'rb').read()
+	try:
+		feature_values = compute_features(sess, data, data_placeholder, reshaped_image, 
+										  pre_final_tensor, input_tensor)
+	except Exception as e:
+		raise RuntimeError('Error in file {}: {}'.format(image_file_path, str(e)))
+
+	feature_values = ','.join(str(x) for x in feature_values)		
+	with open(image_feature_path, 'w') as f:
+		f.write(feature_values)
+
+def log_tensor(sess, files, label, i, data_dir, s, FEATURES_DIR, \
+			   data_placeholder, reshaped_image, pre_final_tensor, \
+			   input_tensor, hub_module):
+	"""Computes pre final tensors(features) for each image
+	Args:
+		sess: Current Tensorflow session
+		files: Training file names
+		label: class for the image file
+		i: counter for an image file
+		data_dir: Path to the dataset
+		s: one of - train, valid or test
+		FEATURES_DIR: Path to the store variables
+		data_placeholder: Placeholder for image data
+		reshaped_image: Reshaped tensor as expected by graph
+		pre_final_tensor: pre_final (bottleneck) tensor
+		input_tensor: input tensor (expected image size by graph)
+		hub_module: Tensorflow Hub module
+	Return:
+		array of pre final features for each image
+	"""
+	file_list = files[label]
+	path = os.path.join(FEATURES_DIR, label)
+	if not os.path.exists(path):
+		os.makedirs(path)
+	image_feature_path = find_feature_file(files, label, i, FEATURES_DIR,
+									s, hub_module)
+	if not os.path.exists(image_feature_path):
+		make_feature_file(image_feature_path, files, label, i, 
+						  data_dir, s, sess, data_placeholder, 
+						  reshaped_image, pre_final_tensor, input_tensor)
+	with open(image_feature_path, 'r') as f:
+		features = f.read()
+	is_valid = False
+	try:
+		feature_values = [float(x) for x in features.split(',')]
+	except ValueError:
+		print ('Feature file corrupt. Computing again !')	
+		is_valid = True	
+	if is_valid:
+		make_feature_file(image_feature_path, files, label, i, 
+						  data_dir, s, sess, data_placeholder, 
+						  reshaped_image, pre_final_tensor, input_tensor)
+
+		with open(image_feature_path, 'r') as f:
+			features = f.read()
+		feature_values = [float(x) for x in features.split(',')]
+	
+	return feature_values
+
 def store_tensors(sess, files, data_dir, FEATURES_DIR, data_placeholder, \
 				  reshaped_image, pre_final_tensor, input_tensor, hub_module):
 	"""Iterate over train, test, valid set and
