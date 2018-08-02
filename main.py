@@ -2,19 +2,20 @@ import argparse
 import tensorflow as tf
 from dataset import load_dataset
 from helper import check_count, decode_and_resize, store_tensors
-from model import build_graph, build_and_retrain
+from model import build_graph, build_and_retrain, classify_outputs
 
 if __name__ == '__main__':
 	INPUT_TENSOR_NAME = 'Placeholder'
 	FINAL_TENSOR_NAME = 'final_result'
 	FEATURES_DIR = 'features'
+	TENSORBOARD_SUMMARIES_DIR = 'tensorboard_summaries'
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--data_dir', type=str, default='dataset', help='Path to the dataset')
 	parser.add_argument('--val_size', type=float, default='1', help='Validation set percentage')
 	parser.add_argument('--test_size', type=float, default='1', help='Test set percentage')
 	parser.add_argument('--learning_rate', type=float, default='0.0001', help='Learning Rate')
-	parser.add_argument('--epochs', type=int, default='1000', help='Number of training steps')
+	parser.add_argument('--steps', type=int, default='1000', help='Number of training steps')
 	parser.add_argument('--batch_size', type=int, default='16', help='Batch size')
 
 	parser.add_argument('--model_dir', type=str, default='models/graph.pb', help='Path to the trained model file(.pb graph)')
@@ -48,5 +49,6 @@ if __name__ == '__main__':
 						  data_placeholder, reshaped_image, pre_final_tensor, \
 						  input_tensor, args.hub_module)
 		
+			preds, step = classify_outputs(final_output_tensor, truth_input_tensor)
 	else:
 		exit()
