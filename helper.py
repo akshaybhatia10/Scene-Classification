@@ -2,6 +2,7 @@ import tensorflow as tf
 import tensorflow_hub as hub
 import os
 import numpy as np
+import random
 
 SETS = ['train', 'valid', 'test']
 
@@ -230,7 +231,58 @@ def store_tensors(sess, files, data_dir, FEATURES_DIR, data_placeholder, \
 				log_tensor(sess, files, label, i, data_dir, s,
 					FEATURES_DIR, data_placeholder,reshaped_image,
 			  		pre_final_tensor, input_tensor, hub_module)
+	
+	print ('Computed features for all images.')
 
-				num_saves += 1
-				if num_saves % 100 == 0:
-					print ('Number of files saved: {}'.format(num_saves))		
+def sample_random_features(sess, num_classes, files, batch_size, c, FEATURES_DIR,
+						   data_dir, data_placeholder, reshaped_image, 
+						   pre_final_tensor, input_tensor, hub_module):
+	"""Returns random batch of precomputed features
+	Args:
+		sess: Current Tensorflow session
+		num_classes: number of classes in our dataset
+		files: Training file names
+		batch_size: size of batch
+		c: one of - training , testing, validation
+		FEATURES_DIR: Path to the store variables
+		data_dir: Path to the dataset
+		data_placeholder: Placeholder for image data
+		reshaped_image: Reshaped tensor as expected by graph
+		pre_final_tensor: pre_final (bottleneck) tensor
+		input_tensor: input tensor (expected image size by graph)
+		hub_module: Tensorflow Hub module
+	Returns:
+		array of precomputed features
+		correct labels for the same image files
+		image file names	
+	"""
+	features, labels, filenames = [], [], []
+	if batch_size >= 0:
+		for n in range(batch_size): 
+			i = random.randrange(num_classes)
+			label = list(files.keys())[i]
+			idx = random.randrange(5001)
+			image_file_path = find_image_file(files, label, idx,
+										 data_dir, c)
+
+			feature_values = log_tensor(sess, files, label, idx, data_dir,
+										c, FEATURES_DIR, data_placeholder, 
+										reshaped_image, pre_final_tensor,
+										input_tensor, hub_module)
+			features.append(feature_values)
+			labels.append(i)
+			filenames.append(image_file_path)
+	else:
+		for i, label in enumerate(files.keys()):
+			for idx, image_file_path in enumerate(files[label][c]):
+					image_file_path = find_image_file(files, label, i,
+													  data_dir, c)
+					feature_values = log_tensor(sess, files, label, idx, data_dir,
+												c, FEATURES_DIR, data_placeholder,
+												reshaped_image, pre_final_tensor,
+												input_tensor, hub_module)
+					features.append(feature_values)
+					labels.append(i)
+					filenames.append(image_file_path)
+
+	return features, labels, filenames
