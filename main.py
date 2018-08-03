@@ -1,7 +1,7 @@
 import argparse
 import tensorflow as tf
 from dataset import load_dataset
-from helper import check_count, decode_and_resize, store_tensors
+from helper import check_count, decode_and_resize, store_tensors, sample_random_features
 from model import build_graph, build_and_retrain, classify_outputs
 
 if __name__ == '__main__':
@@ -50,5 +50,15 @@ if __name__ == '__main__':
 						  input_tensor, args.hub_module)
 		
 			preds, step = classify_outputs(final_output_tensor, truth_input_tensor)
+
+			merge = tf.summary.merge_all()
+			writer = {'training': tf.summary.FileWriter(TENSORBOARD_SUMMARIES_DIR + '/train', sess.graph),
+					  'validation': tf.summary.FileWriter(TENSORBOARD_SUMMARIES_DIR + '/validation')}
+			
+			saver = tf.train.Saver()
+			for i in range(args.steps):
+				features, labels, _ = sample_random_features(sess, num_classes, files, args.batch_size, 'train', FEATURES_DIR,
+															args.data_dir, data_placeholder, reshaped_image, 
+															pre_final_tensor, input_tensor, args.hub_module)
 	else:
 		exit()
