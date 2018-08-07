@@ -1,20 +1,19 @@
 import argparse
 import tensorflow as tf
+import tensorflow_hub as hub
 from dataset import load_dataset
 from helper import check_count, decode_and_resize, store_tensors, sample_random_features
-from model import build_graph, build_and_retrain, classify_outputs
+from model import build_graph, build_and_retrain, classify_outputs, save_file_to_disk, compute_test_graph
 
 if __name__ == '__main__':
-
-	VALID_BATCH_SIZE = 16
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--data_dir', type=str, default='dataset', help='Path to the dataset')
 	parser.add_argument('--val_size', type=float, default='5', help='Validation set percentage')
 	parser.add_argument('--test_size', type=float, default='5', help='Test set percentage')
 	parser.add_argument('--learning_rate', type=float, default='0.0001', help='Learning Rate')
-	parser.add_argument('--steps', type=int, default='10', help='Number of training steps')
-	parser.add_argument('--test_step', type=int, default='1', help='Interval to test the model')
+	parser.add_argument('--steps', type=int, default='50', help='Number of training steps')
+	parser.add_argument('--test_step', type=int, default='5', help='Interval to test the model')
 	parser.add_argument('--save_step', type=int, default='1', help='Interval to save tested model')
 	parser.add_argument('--batch_size', type=int, default='32', help='Batch size')
 
@@ -33,9 +32,15 @@ if __name__ == '__main__':
 	parser.add_argument('--final_tensor_name', type=str, default='final_result', help='name scope of final output')
 
 	args = parser.parse_args()
+
+	VALID_BATCH_SIZE = 16
+	CHECKPOINT_DIR = args.step_model_dir + '/_step_model_files'
+
 	# Load dataset and get all files
 	classes, files = load_dataset(args.data_dir, args.test_size, args.val_size)
 	num_classes = len(classes)
+	tf.reset_default_graph()
+
 	if check_count(num_classes):
 		graph, pre_final_tensor, input_tensor = build_graph(args.hub_module)
 		
@@ -62,29 +67,37 @@ if __name__ == '__main__':
 			
 			for i in range(args.steps + 1):
 				features, labels, _ = sample_random_features(sess, num_classes, files, args.batch_size, 'train',
-												args.features_dir, args.data_dir, data_placeholder, reshaped_image, 
-												pre_final_tensor, input_tensor, args.hub_module)
+									  args.features_dir, args.data_dir, data_placeholder, reshaped_image, 
+									  pre_final_tensor, input_tensor, args.hub_module)
 				train_summary_op, _ = sess.run([merge, optimizer], 
 										 feed_dict={pre_final_input_tensor: features, 
 										 truth_input_tensor: labels})
 				writer['train'].add_summary(train_summary_op, i)
 
 				if (i % args.test_step) == 0:
-					acc, l = sess.run([preds, loss], 
+					acc, l = sess.run([step, loss], 
 						feed_dict={pre_final_input_tensor: features,
 						truth_input_tensor: labels})
-					print ('Accuracy {}, Loss {:.2f}, Step {}'.format(acc*100, l, i))
+					print ('Train Accuracy {}, Train Loss {:.2f}, Step {}'.format(acc*100, l, i))
 
-				valid_features, valid_labels, _ = sample_random_features(sess, num_classes, files, VALID_BATCH_SIZE, 'valid',
-												  args.features_dir, args.data_dir, data_placeholder, reshaped_image, 
-												  pre_final_tensor, input_tensor, args.hub_module)
+					valid_features, valid_labels, _ = sample_random_features(sess, num_classes, files, VALID_BATCH_SIZE, 
+													  'valid', args.features_dir, args.data_dir, data_placeholder,
+													  reshaped_image, pre_final_tensor, input_tensor, args.hub_module)
 
-
-				valid_summary_op, valid_acc = sess.run([merge, preds], 
+					valid_summary_op, valid_acc = sess.run([merge, step], 
 										 feed_dict={pre_final_input_tensor: valid_features, 
 										 truth_input_tensor: valid_labels})
-				writer['valid'].add_summary(valid_summary_op, i)
-				print ('Validation Accuracy {}, Step {}'.format(valid_acc*100, i))
-	
+					writer['valid'].add_summary(valid_summary_op, i)
+					print ('=====Validation Accuracy {}, Step {}====='.format(valid_acc*100, i))
+					print ('\n')
+
+				if (args.save_step > 0 and (i % args.save_step == 0) and i > 0):
+					saver.save(sess, CHECKPOINT_DIR)
+					file = (args.step_model_dir + 'step_' + str(i) + '.pb')
+					print ('Saving to {}'.format(file))
+					
+					save_file_to_disk(graph, file, args.hub_module, num_classes, args.final_tensor_name,
+									  args.learning_rate, CHECKPOINT_DIR)
+
 	else:
 		exit()
