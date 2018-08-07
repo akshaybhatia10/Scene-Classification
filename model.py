@@ -21,12 +21,12 @@ def build_graph(hub_module):
 
 	return graph, pre_final_tensor, input_tensor
 
-def build_and_retrain(num_classes, FINAL_TENSOR_NAME, pre_final_tensor, learning_rate, train):
+def build_and_retrain(num_classes, final_tensor_name, pre_final_tensor, learning_rate, train):
 	"""Add final(and custom) layers to the graph for retraining
 	
 	Args:
 		num_classes: number of classes in our dataset
-		FINAL_TENSOR_NAME: (constant) name of output of classification(softmax) layer
+		final_tensor_name: (constant) name of output of classification(softmax) layer
 		pre_final_tensor: pre final(bottleneck) tensor
 		train: to train new layers or not
 	Returns:
@@ -58,7 +58,7 @@ def build_and_retrain(num_classes, FINAL_TENSOR_NAME, pre_final_tensor, learning
 			outputs = tf.add(tf.matmul(pre_final_input_tensor, w), b)
 			tf.summary.histogram('pre_classification_output', outputs)		
 
-	final_output_tensor = tf.nn.softmax(outputs, name=FINAL_TENSOR_NAME)
+	final_output_tensor = tf.nn.softmax(outputs, name=final_tensor_name)
 	tf.summary.histogram('classification_output', final_output_tensor)
 	
 	# Check if training or evaluation(inference)	
@@ -86,9 +86,55 @@ def classify_outputs(logits, labels):
 	with tf.name_scope('accuracy'):
 		with tf.name_scope('correct_results'):
 			preds = tf.argmax(logits, 1)
-			correct = tf.equal(pred, labels)
+			correct = tf.equal(preds, labels)
 		with tf.name_scope('accuracy'):
 			step = tf.reduce_mean(tf.cast(correct, tf.float32))
 	tf.summary.scalar('accuracy', step)	
 
-	return pred, step		
+	return preds, step
+
+def compute_test_graph(hub_module, num_classes, final_tensor_name, learning_rate, CHECKPOINT_DIR):
+	"""Compute graph from saved session
+	Args:
+		module: Tensorflow hub module
+		num_classes: number of classes in our dataset
+		final_tensor_name: name scope of final tensor
+		learning_rate: learning rate
+		CHECKPOINT_DIR: path to saved model files
+	Returns:
+		session of tensorflow graph
+		final output tensor
+		pre_final input(bottleneck) tensor
+		ground truth tensor		
+		prediction of our network
+		evaluation step
+	"""
+	graph, pre_final_tensor, input_tensor = build_graph(hub_module)
+	sess = tf.Session(graph=graph)
+	with graph.as_default():
+		_, _, pre_final_input_tensor, truth_input_tensor, final_output_tensor = \
+			build_and_retrain(num_classes, final_tensor_name, pre_final_tensor, learning_rate, train=False)
+
+	saver = tf.train.Saver()
+	saver.restore(sess, CHECKPOINT_DIR)
+	pred, step = classify_outputs(final_output_tensor, truth_input_tensor)
+
+	return sess, input_tensor, pre_final_input_tensor, truth_input_tensor, pred, step
+
+
+def save_file_to_disk(graph, file, hub_module, num_classes, final_tensor_name, learning_rate, CHECKPOINT_DIR):
+	"""Saves intermediate model files to disk
+	Args:
+		graph: tensorflow graph
+		file: name of file to be saved
+		module: Tensorflow hub module
+		num_classes: number of classes in our dataset
+	"""
+	module = hub.load_module_spec(hub_module)
+	sess, _, _, _, _ = compute_test_graph(hub_module, num_classes, final_tensor_name, 
+									learning_rate, CHECKPOINT_DIR)
+	graph = tf.graph.util.convert_variables_to_constants(
+			sess, sess.graph.as_graph_def(), [final_tensor_name])
+
+	with tf.gfile.FastGFile(file, 'wb') as f:
+		f.write(graph.SerializeToString())			
