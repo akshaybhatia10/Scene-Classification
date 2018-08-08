@@ -3,7 +3,7 @@ import tensorflow as tf
 import tensorflow_hub as hub
 from dataset import load_dataset
 from helper import check_count, decode_and_resize, store_tensors, sample_random_features
-from model import build_graph, build_and_retrain, classify_outputs, save_file_to_disk, compute_test_graph
+from model import build_graph, build_and_retrain, classify_outputs, save_file_to_disk, compute_test_graph, compute_final_op
 
 if __name__ == '__main__':
 
@@ -12,10 +12,10 @@ if __name__ == '__main__':
 	parser.add_argument('--val_size', type=float, default='5', help='Validation set percentage')
 	parser.add_argument('--test_size', type=float, default='5', help='Test set percentage')
 	parser.add_argument('--learning_rate', type=float, default='0.0001', help='Learning Rate')
-	parser.add_argument('--steps', type=int, default='50', help='Number of training steps')
-	parser.add_argument('--test_step', type=int, default='5', help='Interval to test the model')
-	parser.add_argument('--save_step', type=int, default='1', help='Interval to save tested model')
-	parser.add_argument('--batch_size', type=int, default='32', help='Batch size')
+	parser.add_argument('--steps', type=int, default='100', help='Number of training steps')
+	parser.add_argument('--test_step', type=int, default='10', help='Interval to test the model')
+	parser.add_argument('--save_step', type=int, default='50', help='Interval to save tested model')
+	parser.add_argument('--batch_size', type=int, default='64', help='Batch size')
 
 	parser.add_argument('--model_dir', type=str, default='models/graph.pb', help='Path to the complete trained model file(.pb graph)')
 	parser.add_argument('--step_model_dir', type=str, default='step_model_files', help='Path to store step model file(.pb graph)')
@@ -96,8 +96,12 @@ if __name__ == '__main__':
 					file = (args.step_model_dir + 'step_' + str(i) + '.pb')
 					print ('Saving to {}'.format(file))
 					
-					save_file_to_disk(graph, file, args.hub_module, num_classes, args.final_tensor_name,
-									  args.learning_rate, CHECKPOINT_DIR)
+					# save_file_to_disk(graph, file, args.hub_module, num_classes, args.final_tensor_name,
+									  # args.learning_rate, CHECKPOINT_DIR)
 
+				saver.save(sess, CHECKPOINT_DIR)
+
+				compute_final_op(sess, args.batch_size, args.features_dir, args.data_dir, args.hub_module, num_classes,files, data_placeholder,
+								 reshaped_image, pre_final_tensor, input_tensor, args.final_tensor_name, args.learning_rate, CHECKPOINT_DIR)
 	else:
 		exit()
