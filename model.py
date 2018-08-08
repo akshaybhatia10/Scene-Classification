@@ -1,6 +1,6 @@
 import tensorflow_hub as hub
 import tensorflow as tf
-from helper import record_ops
+from helper import record_ops, sample_random_features
 
 def build_graph(hub_module):
 	"""Build a graph from tensorflow hub module
@@ -137,4 +137,36 @@ def save_file_to_disk(graph, file, hub_module, num_classes, final_tensor_name, l
 			sess, sess.graph.as_graph_def(), [final_tensor_name])
 
 	with tf.gfile.FastGFile(file, 'wb') as f:
-		f.write(graph.SerializeToString())			
+		f.write(graph.SerializeToString())
+
+def compute_final_op(sess, batch_size, features_dir, data_dir, hub_module, num_classes, files, data_placeholder,
+				     reshaped_image, pre_final_tensor, input_tensor, final_tensor_name, learning_rate, CHECKPOINT_DIR):
+	"""Computes final performance using test set
+	Args:
+		sess: Current tensorflow session
+		batch_size: batch size
+		features_dir:
+		hub_module: Tensorflow hub module
+		num_classes: number of classes in our dataset
+		files: Training file names 
+		data_placeholder: Placeholder for image data
+		reshaped_image: Reshaped tensor as expected by graph
+		pre_final_tensor: pre_final (bottleneck) tensor
+		input_tensor: input tensor (expected image size by graph)
+		final_tensor_name:
+		learning_rate:
+		CHECKPOINT_DIR:	
+	"""
+	module = hub.load_module_spec(hub_module)
+	features, labels, filenames = sample_random_features(sess, num_classes, files, batch_size, 'test',
+						   		  features_dir, data_dir, data_placeholder, reshaped_image, 
+						   		  pre_final_tensor, input_tensor, hub_module)
+
+	sess, input_tensor, pre_final_input_tensor, truth_input_tensor, \
+								pred, step = compute_test_graph(hub_module, num_classes, 
+											 final_tensor_name, learning_rate, CHECKPOINT_DIR)
+
+	acc, p = sess.run([step, pred], feed_dict={data_placeholder: features,
+									 truth_input_tensor: labels})
+
+	print ('Final Test Accuracy {}'.format(acc*100))	
